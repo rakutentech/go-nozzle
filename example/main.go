@@ -1,3 +1,5 @@
+// This directory contains a example usage of go-nozzle.
+// See details on README.md
 package main
 
 import (

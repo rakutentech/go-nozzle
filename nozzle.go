@@ -6,7 +6,6 @@
 //
 // This pacakge provides the consumer which 1. gets the access token for
 // firehose, 2. connects firehose, 3. detects slow consumer alert.
-//
 // To get starts, see Config and Consumer.
 //
 // If you want to change the behavior of default consumer, then implement
