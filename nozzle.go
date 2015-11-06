@@ -1,10 +1,16 @@
-// nozzle is a package for building CloudFoundry Nozzle. Nozzle is a program which consume data from the Loggregator Firehose and then select, buffer, and transform data, and forward it to other applications, components or services.
+// nozzle is a package for building your CloudFoundry(CF) nozzle.
+// nozzle is a program which consume data from the Loggregator firehose
+// (https://github.com/cloudfoundry/loggregator) and then select,
+// buffer, and transform data and forward it to other applications,
+// components or services.
 //
-// This pacakge provides the interfaces and default clients for handling the followings,
+// This pacakge provides the consumer which 1. gets the access token for
+// firehose, 2. connects firehose, 3. detects slow consumer alert.
 //
-//   - Getting the access token from UAA server
-//   - Creating the connection with a firehose
-//   - Detecting `slowConsumerAlert` events
+// To get starts, see Config and Consumer.
+//
+// If you want to change the behavior of default consumer, then implement
+// the interface of it.
 package nozzle
 
 import (
@@ -71,11 +77,12 @@ type Config struct {
 // NewConsumer constructs a new consumer client for nozzle.
 //
 // There is 2 ways to construct. The one is to provide access token for Doppler.
-// The other is to provide UAA endopoint and username/password for CloudFoundry admin.
-// for fetching the token. It returns if the token is empty or can not fetch it
+// The other is to provide UAA endopoint and username/password for CloudFoundry
+// admin to fetch the token.
+//
+// It returns error if the token is empty or can not fetch it
 // from UAA server. If token is not empty or successfully getting from UAA,
 // then it starts to consume firehose events and detecting slowConsumerAlerts.
-// If any, it returns error.
 func NewDefaultConsumer(config *Config) (Consumer, error) {
 	// By default, all logs goes to ioutil.Discard.
 	if config.Logger == nil {
@@ -84,11 +91,13 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 
 	// If Token is not provided, fetch it by tokenFetcher.
 	if config.Token != "" {
-		config.Logger.Printf("[DEBUG] Using auth token (%s)", maskString(config.Token))
+		config.Logger.Printf("[DEBUG] Using auth token (%s)",
+			maskString(config.Token))
 	} else {
 		fetcher, err := newDefaultTokenFetcher(config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to construct default token fetcher: %s", err)
+			return nil, fmt.Errorf("failed to construct default token fetcher: %s",
+				err)
 		}
 
 		// Execute tokenFetcher and get token
@@ -97,7 +106,8 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 			return nil, fmt.Errorf("failed to fetch token: %s", err)
 		}
 
-		config.Logger.Printf("[DEBUG] Setting auth token (%s)", maskString(token))
+		config.Logger.Printf("[DEBUG] Setting auth token (%s)",
+			maskString(token))
 		config.Token = token
 	}
 

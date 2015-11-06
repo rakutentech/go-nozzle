@@ -63,12 +63,12 @@ func (c *consumer) Close() error {
 // RawConsumer defines the interface for consuming events from doppler firehose.
 // The events pulled by RawConsumer pass to slowDetector and check slowDetector.
 //
-// By default, rawConsumer (which is implemented by https://github.com/cloudfoundry/noaa)
-// is used.
+// By default, it uses https://github.com/cloudfoundry/noaa
 type RawConsumer interface {
-	// Consume starts cosuming firehose events. It must return 2 channel. The one
-	// is for sending the events from firehose and the other is for error occured while
-	// consuming. These channels are used donwstream process (SlowConsumer).
+	// Consume starts cosuming firehose events. It must return 2 channel.
+	// The one is for sending the events from firehose
+	// and the other is for error occured while consuming.
+	// These channels are used donwstream process (SlowConsumer).
 	Consume() (chan *events.Envelope, chan error)
 
 	// Close closes connection with firehose. If any, returns error.
