@@ -15,7 +15,7 @@ $ go get github.com/rakutentech/go-nozzle
 
 ## Documentation
 
-Documentation is available on [GoDoc](http://godoc.org/github.com/rakutentech/go-nozzle).
+Documentation is available on [GoDoc](http://godoc.org/github.com/rakutentech/go-nozzle). Also you can see the example usage of `go-nozzle` on [example](/example) directory. 
 
 ## Author
 
