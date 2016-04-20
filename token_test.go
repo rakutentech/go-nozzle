@@ -2,8 +2,6 @@ package nozzle
 
 import (
 	"encoding/base64"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,11 +42,16 @@ func TestDefaultTokenFetcher_fetch(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	fetcher := defaultTokenFetcher{
-		uaaAddr:  ts.URL,
-		username: "gonozzle",
-		password: "passw0rd",
-		logger:   log.New(ioutil.Discard, "", log.LstdFlags),
+	config := &Config{
+		UaaAddr:  ts.URL,
+		Username: "gonozzle",
+		Password: "passw0rd",
+		Logger:   defaultLogger,
+	}
+
+	fetcher, err := newDefaultTokenFetcher(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
 	}
 
 	token, err := fetcher.Fetch()
@@ -63,26 +66,58 @@ func TestDefaultTokenFetcher_fetch(t *testing.T) {
 
 }
 
+func TestDefaultTokenFetcher_failed_to_auth(t *testing.T) {
+	t.Parallel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	config := &Config{
+		UaaAddr:  ts.URL,
+		Username: "gonozzle",
+		Password: "passw0rd",
+		Logger:   defaultLogger,
+	}
+
+	fetcher, err := newDefaultTokenFetcher(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	_, err = fetcher.Fetch()
+	if err == nil {
+		t.Fatalf("expect to be failed")
+	}
+	// t.Logf("err: %s", err)
+}
+
 func TestDefaultTokenFetcher_timeout(t *testing.T) {
 	t.Parallel()
-	fetcher := &defaultTokenFetcher{
-		uaaAddr:  "https://localhost",
-		username: "admin",
-		password: "nipr8qhbp89pq",
-		logger:   log.New(ioutil.Discard, "", log.LstdFlags),
+
+	config := &Config{
+		UaaAddr:  "https://localhost",
+		Username: "admin",
+		Password: "nipr8qhbp89pq",
+		Logger:   defaultLogger,
 
 		// Set very very very short timeout time
-		timeout: 1 * time.Microsecond,
+		UaaTimeout: 1 * time.Microsecond,
+	}
+
+	fetcher, err := newDefaultTokenFetcher(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
 	}
 
 	// Execute fetcher
-	_, err := fetcher.Fetch()
+	_, err = fetcher.Fetch()
 
 	expect := "timeout"
 	if !strings.Contains(err.Error(), expect) {
 		t.Fatalf("expects error message %q to contain %q", err.Error(), expect)
 	}
-
 }
 
 func TestDefaultTokenFetcher_validate(t *testing.T) {
@@ -98,6 +133,15 @@ func TestDefaultTokenFetcher_validate(t *testing.T) {
 				password: "npi4Cgupn",
 			},
 			success: true,
+		},
+
+		{
+			in: &defaultTokenFetcher{
+				uaaAddr:  "https://uaa.cloudfoundry.net",
+				username: "admin",
+				password: "",
+			},
+			success: false,
 		},
 
 		{
