@@ -18,9 +18,9 @@ type SlowDetector interface {
 	// Detect detects `slowConsumerAlert`. It receives upstream
 	// events (RawConsumer) and inspects events it indicate
 	// `slowConsumerAlert` and pass events to downstream.
+	//
 	// The events should be passed without modified.
-	// It returns SlowDetectCh and notify there if `slowConsumerAlert`
-	// is detected.
+	// It returns SlowDetectCh and notify there if `slowConsumerAlert` is detected.
 	Detect(chan *events.Envelope, chan error) (chan *events.Envelope, chan error, SlowDetectCh)
 
 	// Stop stops slow consumer detection. If any returns error.
@@ -33,7 +33,7 @@ type defaultSlowDetector struct {
 	logger *log.Logger
 }
 
-// Detect detects `slowConsumerAlert` event.
+// Detect start to detect `slowConsumerAlert` event.
 func (sd *defaultSlowDetector) Detect(eventCh chan *events.Envelope, errCh chan error) (chan *events.Envelope, chan error, SlowDetectCh) {
 	sd.logger.Println("[INFO] Start detecting slowConsumerAlert event")
 

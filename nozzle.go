@@ -4,8 +4,8 @@
 // buffer, and transform data and forward it to other applications,
 // components or services.
 //
-// This pacakge provides the consumer which 1. gets the access token for
-// firehose, 2. connects firehose, 3. detects slow consumer alert.
+// This pacakge provides the consumer which (1) gets the access token for
+// firehose, (2) connects firehose and consume logs, (3) detects slow consumer alert.
 // To get starts, see Config and Consumer.
 //
 // If you want to change the behavior of default consumer, then implement
@@ -20,6 +20,9 @@ import (
 
 	"github.com/cloudfoundry/noaa"
 )
+
+// By default, all logs goes to ioutil.Discard.
+var defaultLogger = log.New(ioutil.Discard, "", log.LstdFlags)
 
 // Config is a configuration struct for go-nozzle. It contains all required
 // values for using this pacakge. This is used for argument when constructing
@@ -83,9 +86,8 @@ type Config struct {
 // from UAA server. If token is not empty or successfully getting from UAA,
 // then it starts to consume firehose events and detecting slowConsumerAlerts.
 func NewDefaultConsumer(config *Config) (Consumer, error) {
-	// By default, all logs goes to ioutil.Discard.
 	if config.Logger == nil {
-		config.Logger = log.New(ioutil.Discard, "", log.LstdFlags)
+		config.Logger = defaultLogger
 	}
 
 	// If Token is not provided, fetch it by tokenFetcher.
@@ -116,13 +118,13 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 		return nil, fmt.Errorf("failed to construct default consumer: %s", err)
 	}
 
+	// Start consuming events from firehose.
+	eventsCh, errCh := rc.Consume()
+
 	// Construct default slowDetector
 	sd := &defaultSlowDetector{
 		logger: config.Logger,
 	}
-
-	// Start consuming events from firehose.
-	eventsCh, errCh := rc.Consume()
 
 	// Start reading events from firehose and detect `slowConsumerAlert`.
 	// The detection is notified by detectCh.
