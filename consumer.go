@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/cloudfoundry/noaa"
+	noaaConsumer "github.com/cloudfoundry/noaa/consumer"
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
@@ -31,9 +31,9 @@ type consumer struct {
 	rawConsumer  RawConsumer
 	slowDetector SlowDetector
 
-	eventCh  chan *events.Envelope
-	errCh    chan error
-	detectCh chan struct{}
+	eventCh  <-chan *events.Envelope
+	errCh    <-chan error
+	detectCh <-chan struct{}
 }
 
 // Events returns the read channel for the events that consumed by rawConsumer
@@ -69,58 +69,58 @@ type RawConsumer interface {
 	// The one is for sending the events from firehose
 	// and the other is for error occured while consuming.
 	// These channels are used donwstream process (SlowConsumer).
-	Consume() (chan *events.Envelope, chan error)
+	Consume() (<-chan *events.Envelope, <-chan error)
 
 	// Close closes connection with firehose. If any, returns error.
 	Close() error
 }
 
 type rawConsumer struct {
-	connection *noaa.Consumer
+	noaaConsumer *noaaConsumer.Consumer
 
 	dopplerAddr    string
 	token          string
 	subscriptionID string
 	insecure       bool
-	debugPrinter   noaa.DebugPrinter
+	debugPrinter   noaaConsumer.DebugPrinter
 
 	logger *log.Logger
 }
 
 // Consume consumes firehose events from doppler.
 // Retry function is handled in noaa library (It will retry 5 times).
-func (c *rawConsumer) Consume() (chan *events.Envelope, chan error) {
+func (c *rawConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
 	c.logger.Printf(
 		"[INFO] Start consuming firehose events from Doppler (%s) with subscription ID %q",
 		c.dopplerAddr, c.subscriptionID)
 
-	// Setup Noaa consumer
-	tlsConfig := &tls.Config{
+	// Setup Noaa Consumer
+	tlsConfig := tls.Config{
 		InsecureSkipVerify: c.insecure,
 	}
-	connection := noaa.NewConsumer(c.dopplerAddr, tlsConfig, nil)
+	nc := noaaConsumer.New(c.dopplerAddr, &tlsConfig, nil)
+
 	if c.debugPrinter != nil {
-		connection.SetDebugPrinter(c.debugPrinter)
+		nc.SetDebugPrinter(c.debugPrinter)
 	}
 
 	// Start connection
-	eventChan, errChan := make(chan *events.Envelope), make(chan error)
-	go connection.Firehose(c.subscriptionID, c.token, eventChan, errChan)
+	eventChan, errChan := nc.Firehose(c.subscriptionID, c.token)
 
-	// Store conenction in rawConsumer struct
+	// Store noaaConsumer in rawConsumer struct
 	// to close it from other function
-	c.connection = connection
+	c.noaaConsumer = nc
 
 	return eventChan, errChan
 }
 
 func (c *rawConsumer) Close() error {
 	c.logger.Printf("[INFO] Stop consuming firehose events")
-	if c.connection == nil {
+	if c.noaaConsumer == nil {
 		return fmt.Errorf("no connection with firehose")
 	}
 
-	return c.connection.Close()
+	return c.noaaConsumer.Close()
 }
 
 // validate validates struct has requirement fields or not

@@ -21,7 +21,7 @@ type SlowDetector interface {
 	//
 	// The events should be passed without modified.
 	// It returns SlowDetectCh and notify there if `slowConsumerAlert` is detected.
-	Detect(chan *events.Envelope, chan error) (chan *events.Envelope, chan error, SlowDetectCh)
+	Detect(<-chan *events.Envelope, <-chan error) (<-chan *events.Envelope, <-chan error, SlowDetectCh)
 
 	// Stop stops slow consumer detection. If any returns error.
 	Stop() error
@@ -34,7 +34,7 @@ type defaultSlowDetector struct {
 }
 
 // Detect start to detect `slowConsumerAlert` event.
-func (sd *defaultSlowDetector) Detect(eventCh chan *events.Envelope, errCh chan error) (chan *events.Envelope, chan error, SlowDetectCh) {
+func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-chan error) (<-chan *events.Envelope, <-chan error, SlowDetectCh) {
 	sd.logger.Println("[INFO] Start detecting slowConsumerAlert event")
 
 	// Create new channel to pass producer
