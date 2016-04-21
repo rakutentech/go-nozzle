@@ -11,8 +11,8 @@ To run this example, you need CloudFoundry environment with loggregator and acce
 To run this example, you need to export some environmental variables,
 
 ```bash
-export DOPPLER_ADDR="wss://doppler.cf.net"
-export UAA_ADDR="https://uaa.cf.net"
+export DOPPLER_ADDR="wss://doppler.cloudfoundry.net"
+export UAA_ADDR="https://uaa.cloudfoundry.net"
 export CF_USERNAME="tcnksm"
 export CF_PASSWORD="fbfanoibNI11"
 ```
