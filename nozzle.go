@@ -74,17 +74,22 @@ type Config struct {
 	// Logger is logger for go-nozzle. By default, output will be
 	// discarded and not be displayed.
 	Logger *log.Logger
+
+	// The following fileds are now only for testing.
+	tokenFetcher TokenFetcher
+	rawConsumer  RawConsumer
 }
 
 // NewConsumer constructs a new consumer client for nozzle.
 //
-// There is 2 ways to construct. The one is to provide access token for Doppler.
-// The other is to provide UAA endopoint and username/password for CloudFoundry
+// You need access token for consuming firehose log. There is 2
+// ways to construct. The one is to get token beforehand by yourself and use it.
+// The other is to provide UAA endopoint with username/password for CloudFoundry
 // admin to fetch the token.
 //
-// It returns error if the token is empty or can not fetch it
-// from UAA server. If token is not empty or successfully getting from UAA,
-// then it starts to consume firehose events and detecting slowConsumerAlerts.
+// It returns error if the token is empty or can not fetch token from UAA
+// If token is not empty or successfully getting from UAA, then it starts
+// to consume firehose events and detecting slowConsumerAlerts.
 func NewDefaultConsumer(config *Config) (Consumer, error) {
 	if config.Logger == nil {
 		config.Logger = defaultLogger
@@ -95,10 +100,19 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 		config.Logger.Printf("[DEBUG] Using auth token (%s)",
 			maskString(config.Token))
 	} else {
-		fetcher, err := newDefaultTokenFetcher(config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to construct default token fetcher: %s",
-				err)
+
+		if config.UaaAddr == "" {
+			return nil, fmt.Errorf("both Token and UaaAddr can not be empty")
+		}
+
+		fetcher := config.tokenFetcher
+		if fetcher == nil {
+			var err error
+			fetcher, err = newDefaultTokenFetcher(config)
+			if err != nil {
+				return nil, fmt.Errorf("failed to construct default token fetcher: %s",
+					err)
+			}
 		}
 
 		// Execute tokenFetcher and get token
@@ -113,9 +127,13 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 	}
 
 	// Create new RawConsumer
-	rc, err := newRawConsumer(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct default consumer: %s", err)
+	rc := config.rawConsumer
+	if rc == nil {
+		var err error
+		rc, err = newRawConsumer(config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct default consumer: %s", err)
+		}
 	}
 
 	// Start consuming events from firehose.

@@ -14,6 +14,17 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type testRawConsumer struct{}
+
+func (c *testRawConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
+	eventCh, errCh := make(chan *events.Envelope), make(chan error)
+	return eventCh, errCh
+}
+
+func (c *testRawConsumer) Close() error {
+	return nil
+}
+
 func TestConsumer_implement(t *testing.T) {
 	var _ Consumer = &consumer{}
 }

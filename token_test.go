@@ -2,12 +2,27 @@ package nozzle
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 )
+
+type testTokenFetcher struct {
+	// Token is token to return by Fetch(), If it's empty,
+	// Fetch() returns error
+	Token string
+}
+
+func (f *testTokenFetcher) Fetch() (string, error) {
+	if f.Token == "" {
+		return "", fmt.Errorf("no token found")
+	}
+
+	return f.Token, nil
+}
 
 func TestDefaultTokenFetcher_implement(t *testing.T) {
 	var _ TokenFetcher = &defaultTokenFetcher{}
