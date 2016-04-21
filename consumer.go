@@ -18,7 +18,7 @@ type Consumer interface {
 
 	// Detects returns the read channel that is notified slowConsumerAlerts
 	// handled by SlowDetector.
-	Detects() <-chan struct{}
+	Detects() <-chan error
 
 	// Error returns the read channel of erros that occured during consuming.
 	Errors() <-chan error
@@ -33,7 +33,7 @@ type consumer struct {
 
 	eventCh  <-chan *events.Envelope
 	errCh    <-chan error
-	detectCh <-chan struct{}
+	detectCh <-chan error
 }
 
 // Events returns the read channel for the events that consumed by rawConsumer
@@ -42,7 +42,7 @@ func (c *consumer) Events() <-chan *events.Envelope {
 }
 
 // Detects returns the read channel that is notified slowConsumerAlerts
-func (c *consumer) Detects() <-chan struct{} {
+func (c *consumer) Detects() <-chan error {
 	return c.detectCh
 }
 
