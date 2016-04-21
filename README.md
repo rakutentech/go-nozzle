@@ -1,4 +1,4 @@
-go-nozzle [![Go Documentation](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/rakutentech/go-nozzle) [![Build Status](http://img.shields.io/travis/rakutentech/go-nozzle.svg?style=flat-square)][https://travis-ci.org/rakutentech/go-nozzle]
+go-nozzle [![Build Status](http://img.shields.io/travis/rakutentech/go-nozzle.svg?style=flat-square)](https://travis-ci.org/rakutentech/go-nozzle) [![Go Documentation](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/rakutentech/go-nozzle) 
 ====
 
 `go-nozzle` is a pacakge for Go (golang) for building [CloudFoundry(CF) nozzle](https://docs.cloudfoundry.org/loggregator/architecture.html#nozzles). Nozzle is a program which consume data from the Loggregator Firehose and then select, buffer, and transform data, and forward it to other applications like [Apache Kafka](http://kafka.apache.org/) or external services like [Data Dog](https://www.datadoghq.com/).
