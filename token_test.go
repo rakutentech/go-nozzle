@@ -118,7 +118,7 @@ func TestDefaultTokenFetcher_timeout(t *testing.T) {
 		Logger:   defaultLogger,
 
 		// Set very very very short timeout time
-		UaaTimeout: 1 * time.Microsecond,
+		UaaTimeout: 1 * time.Nanosecond,
 	}
 
 	fetcher, err := newDefaultTokenFetcher(config)
