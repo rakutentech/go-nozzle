@@ -86,6 +86,7 @@ func newDefaultTokenFetcher(config *Config) (*defaultTokenFetcher, error) {
 		timeout:  config.UaaTimeout,
 		username: config.Username,
 		password: config.Password,
+		insecure: config.Insecure,
 		logger:   config.Logger,
 	}
 
