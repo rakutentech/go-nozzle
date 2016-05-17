@@ -60,6 +60,9 @@ func run(args []string) int {
 		return 1
 	}
 
+	// Start consumer
+	consumer.Start()
+
 	log.Printf("[INFO] Start example producer")
 	doneCh := make(chan struct{})
 	go func() {
