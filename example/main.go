@@ -3,6 +3,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -30,10 +31,17 @@ const (
 )
 
 func main() {
-	os.Exit(run(os.Args))
+	os.Exit(run(os.Args[1:]))
 }
 
 func run(args []string) int {
+
+	var insecure bool
+	flags := flag.NewFlagSet("example", flag.ContinueOnError)
+	flags.BoolVar(&insecure, "insecure", false, "Enable insecure ssl skip verify")
+	if err := flags.Parse(args); err != nil {
+		return 1
+	}
 
 	// Construct Nozzle opt
 	config := &nozzle.Config{
@@ -42,8 +50,8 @@ func run(args []string) int {
 		Username:       os.Getenv(EnvUsername),
 		Password:       os.Getenv(EnvPassword),
 		SubscriptionID: SubscriptionID,
-
-		Logger: log.New(os.Stdout, "", log.LstdFlags),
+		Insecure:       insecure,
+		Logger:         log.New(os.Stdout, "", log.LstdFlags),
 	}
 
 	consumer, err := nozzle.NewDefaultConsumer(config)

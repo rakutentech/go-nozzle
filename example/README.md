@@ -25,3 +25,5 @@ After setup, you can run it like below. You can see metrics in your console.
 $ go run main.go
 ```
 
+To turn off verification of the certificate, use `-insecure` option.
+
