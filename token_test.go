@@ -111,14 +111,20 @@ func TestDefaultTokenFetcher_failed_to_auth(t *testing.T) {
 func TestDefaultTokenFetcher_timeout(t *testing.T) {
 	t.Parallel()
 
+	// Create server it just waits for timout of client
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(1 * time.Second)
+	}))
+	defer ts.Close()
+
 	config := &Config{
-		UaaAddr:  "https://localhost",
+		UaaAddr:  ts.URL,
 		Username: "admin",
 		Password: "nipr8qhbp89pq",
 		Logger:   defaultLogger,
 
 		// Set very very very short timeout time
-		UaaTimeout: 1 * time.Nanosecond,
+		UaaTimeout: 1 * time.Millisecond,
 	}
 
 	fetcher, err := newDefaultTokenFetcher(config)
