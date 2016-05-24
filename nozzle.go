@@ -91,8 +91,8 @@ type Config struct {
 // admin to fetch the token.
 //
 // It returns error if the token is empty or can not fetch token from UAA
-// If token is not empty or successfully getting from UAA, then it starts
-// to consume firehose events and detecting slowConsumerAlerts.
+// If token is not empty or successfully getting from UAA, then it returns nozzle.Consumer.
+// (In initial version, it starts consuming here but now Start() should be called).
 func NewDefaultConsumer(config *Config) (Consumer, error) {
 	if config.Logger == nil {
 		config.Logger = defaultLogger
@@ -139,24 +139,9 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 		}
 	}
 
-	// Start consuming events from firehose.
-	eventsCh, errCh := rc.Consume()
-
-	// Construct default slowDetector
-	sd := &defaultSlowDetector{
-		logger: config.Logger,
-	}
-
-	// Start reading events from firehose and detect `slowConsumerAlert`.
-	// The detection is notified by detectCh.
-	eventsCh_, errCh_, detectCh := sd.Detect(eventsCh, errCh)
-
 	return &consumer{
-		rawConsumer:  rc,
-		slowDetector: sd,
-		eventCh:      eventsCh_,
-		errCh:        errCh_,
-		detectCh:     detectCh,
+		rawConsumer: rc,
+		logger:      config.Logger,
 	}, nil
 }
 

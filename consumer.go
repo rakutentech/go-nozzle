@@ -23,13 +23,19 @@ type Consumer interface {
 	// Error returns the read channel of erros that occured during consuming.
 	Errors() <-chan error
 
+	// Start starts consuming upstream events by RawConsumer and stop SlowDetector.
+	// If any, returns error.
+	Start() error
+
 	// Close stop consuming upstream events by RawConsumer and stop SlowDetector.
+	// If any, returns error.
 	Close() error
 }
 
 type consumer struct {
 	rawConsumer  RawConsumer
 	slowDetector SlowDetector
+	logger       *log.Logger
 
 	eventCh  <-chan *events.Envelope
 	errCh    <-chan error
@@ -49,6 +55,30 @@ func (c *consumer) Detects() <-chan error {
 // Error returns the read channel of erros that occured during consuming.
 func (c *consumer) Errors() <-chan error {
 	return c.errCh
+}
+
+// Start starts consuming & slowDetector
+func (c *consumer) Start() error {
+	// Start consuming events from firehose.
+	eventsCh, errCh := c.rawConsumer.Consume()
+
+	// Construct default slowDetector
+	sd := &defaultSlowDetector{
+		logger: c.logger,
+	}
+
+	// Store slowDetector (for Close() fucntion)
+	c.slowDetector = sd
+
+	// Start reading events from firehose and detect `slowConsumerAlert`.
+	// The detection is notified by detectCh.
+	c.eventCh, c.errCh, c.detectCh = sd.Detect(eventsCh, errCh)
+
+	// In current implementation no errors are happened.
+	//
+	// This is for preventing interfance change in future when
+	// we need to put some other function here and it returns error.
+	return nil
 }
 
 // Close closes connection with firehose and stop slowDetector.

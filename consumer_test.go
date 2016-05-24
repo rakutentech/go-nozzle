@@ -3,15 +3,11 @@ package nozzle
 import (
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gorilla/websocket"
 )
 
 type testRawConsumer struct{}
@@ -44,32 +40,7 @@ func TestRawConsumer_consume(t *testing.T) {
 	authToken := "n98ubNOIUog9gOPUbvqiur"
 
 	// Setup web socket server
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("Authorization")
-		if token != authToken {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		upgrader := websocket.Upgrader{
-			// Accept all origin
-			CheckOrigin: func(r *http.Request) bool { return true },
-		}
-
-		ws, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			// Should not reach here
-			panic(err)
-		}
-		defer ws.Close()
-		defer ws.WriteControl(websocket.CloseMessage, []byte(""), time.Time{})
-
-		input := <-inputCh
-		if err := ws.WriteMessage(websocket.BinaryMessage, input); err != nil {
-			// Should not reach here
-			panic(err)
-		}
-	}))
+	ts := NewDopplerServer(t, inputCh, authToken)
 	defer ts.Close()
 
 	consumer := &rawConsumer{
@@ -84,23 +55,9 @@ func TestRawConsumer_consume(t *testing.T) {
 	// Create test message send from web socket.
 	// It will be encoded to protocol buffer.
 	timestamp := time.Now().UnixNano()
-
 	message := "Hello from fake loggregator"
-	logMessage := &events.LogMessage{
-		Message:     []byte(message),
-		MessageType: events.LogMessage_OUT.Enum(),
-		AppId:       proto.String("my-app-guid"),
-		SourceType:  proto.String("DEA"),
-		Timestamp:   proto.Int64(timestamp),
-	}
 
-	eventBytes, err := proto.Marshal(&events.Envelope{
-		LogMessage: logMessage,
-		EventType:  events.Envelope_LogMessage.Enum(),
-		Origin:     proto.String("fake-origin-1"),
-		Timestamp:  proto.Int64(timestamp),
-	})
-
+	eventBytes, err := NewEvent(message, timestamp)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
