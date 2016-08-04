@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -17,6 +18,10 @@ type testTokenFetcher struct {
 }
 
 func (f *testTokenFetcher) Fetch() (string, error) {
+	return f.FetchContext(context.TODO())
+}
+
+func (f *testTokenFetcher) FetchContext(ctx context.Context) (string, error) {
 	if f.Token == "" {
 		return "", fmt.Errorf("no token found")
 	}
@@ -135,7 +140,7 @@ func TestDefaultTokenFetcher_timeout(t *testing.T) {
 	// Execute fetcher
 	_, err = fetcher.Fetch()
 
-	expect := "timeout"
+	expect := "deadline"
 	if !strings.Contains(err.Error(), expect) {
 		t.Fatalf("expects error message %q to contain %q", err.Error(), expect)
 	}

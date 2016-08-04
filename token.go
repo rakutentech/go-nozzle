@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -19,6 +20,9 @@ const (
 type tokenFetcher interface {
 	// Fetch fetches the token from Uaa and return it. If any, returns error.
 	Fetch() (string, error)
+
+	// FetchContext is Fetch using the given context.
+	FetchContext(context.Context) (string, error)
 }
 
 type defaultTokenFetcher struct {
@@ -33,6 +37,28 @@ type defaultTokenFetcher struct {
 // Fetch gets access token from UAA server. This auth token
 // is s used for accessing traffic-controller. It retuns error if any.
 func (tf *defaultTokenFetcher) Fetch() (string, error) {
+	return tf.FetchContext(context.Background())
+}
+
+// FetchContext is gets access token from UAA server using the provided context.
+func (tf *defaultTokenFetcher) FetchContext(ctx context.Context) (string, error) {
+	if ctx == nil {
+		panic("nil context")
+	}
+
+	timeout := defaultUAATimeout
+	if tf.timeout != 0 {
+		timeout = tf.timeout
+	}
+	deadline := time.Now().Add(timeout)
+
+	if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
+		subCtx, cancel := context.WithDeadline(ctx, deadline)
+		defer cancel()
+
+		ctx = subCtx
+	}
+
 	tf.logger.Printf("[INFO] Getting auth token of %q from UAA (%s)", tf.username, tf.uaaAddr)
 	client, err := uaago.NewClient(tf.uaaAddr)
 	if err != nil {
@@ -48,18 +74,14 @@ func (tf *defaultTokenFetcher) Fetch() (string, error) {
 		resCh <- token
 	}()
 
-	timeout := defaultUAATimeout
-	if tf.timeout != 0 {
-		timeout = tf.timeout
-	}
-
 	select {
 	case err := <-errCh:
 		return "", err
-	case <-time.After(timeout):
-		return "", fmt.Errorf("request timeout: %s", timeout)
 	case token := <-resCh:
 		return token, nil
+	case <-ctx.Done():
+		// TODO(tcnksm): Cancelling GetAuthToken()
+		return "", ctx.Err()
 	}
 }
 
