@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -10,6 +11,8 @@ import (
 
 // SlowDetectCh is channel used to send `slowConsumerAlert` event.
 type slowDetectCh chan error
+
+type noaaEvents <-chan *events.Envelope
 
 // SlowDetector defines the interface for detecting `slowConsumerAlert`
 // event. By default, defaultSlowDetetor is used. It implements same detection
@@ -22,27 +25,30 @@ type slowDetector interface {
 	// It returns SlowDetectCh and notify `slowConsumerAlert` there.
 	Detect(<-chan *events.Envelope, <-chan error) (<-chan *events.Envelope, <-chan error, slowDetectCh)
 
+	// DetectContext detects `slowConsumerAlert` using the given context
+	DetectContext(context.Context, noaaEvents, <-chan error) (noaaEvents, <-chan error, slowDetectCh)
+
 	// Stop stops slow consumer detection. If any returns error.
 	Stop() error
 }
 
 // defaultSlowDetector implements SlowDetector interface
 type defaultSlowDetector struct {
-	doneCh chan struct{}
-	logger *log.Logger
+	cancelFunc context.CancelFunc
+	logger     *log.Logger
 }
 
-// Detect start to detect `slowConsumerAlert` event.
-func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-chan error) (<-chan *events.Envelope, <-chan error, slowDetectCh) {
+func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEvents, errCh <-chan error) (noaaEvents, <-chan error, slowDetectCh) {
+
+	if ctx == nil {
+		panic("nil context")
+	}
+
 	sd.logger.Println("[INFO] Start detecting slowConsumerAlert event")
 
 	// Create new channel to pass producer
 	eventCh_ := make(chan *events.Envelope)
 	errCh_ := make(chan error)
-
-	// doneCh is used to cancel sending data to
-	// downstream process.
-	sd.doneCh = make(chan struct{})
 
 	// deteCh is used to send `slowConsumerAlert` event
 	detectCh := make(slowDetectCh)
@@ -53,14 +59,18 @@ func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-c
 		for event := range eventCh {
 			// Check nozzle can catch up firehose outputs speed.
 			if isTruncated(event) {
-				detectCh <- fmt.Errorf("doppler dropped messages from its queue because nozzle is slow")
+				detectCh <- fmt.Errorf(
+					"doppler dropped messages from its queue because nozzle is slow")
 			}
 
 			select {
 			case eventCh_ <- event:
-			case <-sd.doneCh:
-				// After doneCh is closed, sending event to downstream
-				// is immediately stopped.
+			case <-ctx.Done():
+				// Send errCh_ that context is closed
+				sd.logger.Println("[INFO] Canceled parent context: closing event channel")
+				errCh_ <- ctx.Err()
+
+				// close downstream eventCh
 				return
 			}
 
@@ -89,9 +99,12 @@ func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-c
 			}
 			select {
 			case errCh_ <- err:
-			case <-sd.doneCh:
-				// After doneCh is closed, sending events to downstream
-				// is immediately stopped.
+			case <-ctx.Done():
+				// Send errCh_ that context is closed
+				sd.logger.Println("[INFO] Canceled parent context: closing error channel")
+				errCh_ <- ctx.Err()
+
+				// close downstream errCh and eventCh
 				return
 			}
 
@@ -101,13 +114,21 @@ func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-c
 	return eventCh_, errCh_, detectCh
 }
 
+// Detect start to detect `slowConsumerAlert` event.
+func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-chan error) (<-chan *events.Envelope, <-chan error, slowDetectCh) {
+	ctx, cancel := context.WithCancel(context.Background())
+	sd.cancelFunc = cancel
+	return sd.DetectContext(ctx, eventCh, errCh)
+}
+
 func (sd *defaultSlowDetector) Stop() error {
 	sd.logger.Println("[INFO] Stop detecting slowConsumerAlert event")
-	if sd.doneCh == nil {
-		return fmt.Errorf("slow detector is not running")
+	if sd.cancelFunc == nil {
+		return fmt.Errorf("cancel function is not given")
 	}
 
-	close(sd.doneCh)
+	sd.cancelFunc()
+
 	return nil
 }
 
