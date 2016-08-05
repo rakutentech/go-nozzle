@@ -34,7 +34,7 @@ type Consumer interface {
 
 type consumer struct {
 	rawConsumer  RawConsumer
-	slowDetector SlowDetector
+	slowDetector slowDetector
 	logger       *log.Logger
 
 	eventCh  <-chan *events.Envelope
