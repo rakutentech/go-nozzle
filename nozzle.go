@@ -13,6 +13,7 @@
 package nozzle
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -94,6 +95,15 @@ type Config struct {
 // If token is not empty or successfully getting from UAA, then it returns nozzle.Consumer.
 // (In initial version, it starts consuming here but now Start() should be called).
 func NewConsumer(config *Config) (Consumer, error) {
+	return NewConsumerContext(context.Background(), config)
+}
+
+// NewConsumerContext construct a new consumer with the given context.
+func NewConsumerContext(ctx context.Context, config *Config) (Consumer, error) {
+	if ctx == nil {
+		panic("nil context")
+	}
+
 	if config.Logger == nil {
 		config.Logger = defaultLogger
 	}
@@ -119,7 +129,7 @@ func NewConsumer(config *Config) (Consumer, error) {
 		}
 
 		// Execute tokenFetcher and get token
-		token, err := fetcher.Fetch()
+		token, err := fetcher.FetchContext(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch token: %s", err)
 		}

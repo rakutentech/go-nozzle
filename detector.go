@@ -12,7 +12,7 @@ import (
 // SlowDetectCh is channel used to send `slowConsumerAlert` event.
 type slowDetectCh chan error
 
-type noaaEvents <-chan *events.Envelope
+type noaaEventsCh <-chan *events.Envelope
 
 // SlowDetector defines the interface for detecting `slowConsumerAlert`
 // event. By default, defaultSlowDetetor is used. It implements same detection
@@ -26,7 +26,7 @@ type slowDetector interface {
 	Detect(<-chan *events.Envelope, <-chan error) (<-chan *events.Envelope, <-chan error, slowDetectCh)
 
 	// DetectContext detects `slowConsumerAlert` using the given context
-	DetectContext(context.Context, noaaEvents, <-chan error) (noaaEvents, <-chan error, slowDetectCh)
+	DetectContext(context.Context, noaaEventsCh, <-chan error) (noaaEventsCh, <-chan error, slowDetectCh)
 
 	// Stop stops slow consumer detection. If any returns error.
 	Stop() error
@@ -38,7 +38,7 @@ type defaultSlowDetector struct {
 	logger     *log.Logger
 }
 
-func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEvents, errCh <-chan error) (noaaEvents, <-chan error, slowDetectCh) {
+func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEventsCh, errCh <-chan error) (noaaEventsCh, <-chan error, slowDetectCh) {
 
 	if ctx == nil {
 		panic("nil context")

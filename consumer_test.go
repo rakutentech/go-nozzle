@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"context"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -13,6 +14,10 @@ import (
 type testRawConsumer struct{}
 
 func (c *testRawConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
+	return c.ConsumeContext(context.Background())
+}
+
+func (c *testRawConsumer) ConsumeContext(ctx context.Context) (noaaEventsCh, <-chan error) {
 	eventCh, errCh := make(chan *events.Envelope), make(chan error)
 	return eventCh, errCh
 }

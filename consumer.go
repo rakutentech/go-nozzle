@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -33,9 +34,9 @@ type Consumer interface {
 }
 
 type consumer struct {
-	rawConsumer  rawConsumer
-	slowDetector slowDetector
-	logger       *log.Logger
+	rawConsumer rawConsumer
+	cancelFunc  context.CancelFunc
+	logger      *log.Logger
 
 	eventCh  <-chan *events.Envelope
 	errCh    <-chan error
@@ -59,20 +60,28 @@ func (c *consumer) Errors() <-chan error {
 
 // Start starts consuming & slowDetector
 func (c *consumer) Start() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancelFunc = cancel
+	return c.StartContext(ctx)
+}
+
+func (c *consumer) StartContext(ctx context.Context) error {
+
+	if ctx == nil {
+		panic("nil context")
+	}
+
 	// Start consuming events from firehose.
-	eventsCh, errCh := c.rawConsumer.Consume()
+	eventsCh, errCh := c.rawConsumer.ConsumeContext(ctx)
 
 	// Construct default slowDetector
 	sd := &defaultSlowDetector{
 		logger: c.logger,
 	}
 
-	// Store slowDetector (for Close() fucntion)
-	c.slowDetector = sd
-
 	// Start reading events from firehose and detect `slowConsumerAlert`.
 	// The detection is notified by detectCh.
-	c.eventCh, c.errCh, c.detectCh = sd.Detect(eventsCh, errCh)
+	c.eventCh, c.errCh, c.detectCh = sd.DetectContext(ctx, eventsCh, errCh)
 
 	// In current implementation no errors are happened.
 	//
@@ -83,11 +92,12 @@ func (c *consumer) Start() error {
 
 // Close closes connection with firehose and stop slowDetector.
 func (c *consumer) Close() error {
-	if err := c.rawConsumer.Close(); err != nil {
-		return err
+	if c.cancelFunc == nil {
+		return fmt.Errorf("")
 	}
 
-	return c.slowDetector.Stop()
+	c.cancelFunc()
+	return nil
 }
 
 // rawConsumer defines the interface for consuming events from doppler firehose.
@@ -101,13 +111,14 @@ type rawConsumer interface {
 	// These channels are used donwstream process (SlowConsumer).
 	Consume() (<-chan *events.Envelope, <-chan error)
 
+	// ConsumeContext start consuming firehose events using the given context
+	ConsumeContext(context.Context) (noaaEventsCh, <-chan error)
+
 	// Close closes connection with firehose. If any, returns error.
 	Close() error
 }
 
 type rawDefaultConsumer struct {
-	noaaConsumer *noaaConsumer.Consumer
-
 	dopplerAddr    string
 	token          string
 	subscriptionID string
@@ -115,11 +126,15 @@ type rawDefaultConsumer struct {
 	debugPrinter   noaaConsumer.DebugPrinter
 
 	logger *log.Logger
+
+	cancelFunc context.CancelFunc
 }
 
-// Consume consumes firehose events from doppler.
-// Retry function is handled in noaa library (It will retry 5 times).
-func (c *rawDefaultConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
+func (c *rawDefaultConsumer) ConsumeContext(ctx context.Context) (noaaEventsCh, <-chan error) {
+	if ctx == nil {
+		panic("nil context")
+	}
+
 	c.logger.Printf(
 		"[INFO] Start consuming firehose events from Doppler (%s) with subscription ID %q",
 		c.dopplerAddr, c.subscriptionID)
@@ -137,20 +152,34 @@ func (c *rawDefaultConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
 	// Start connection
 	eventChan, errChan := nc.Firehose(c.subscriptionID, c.token)
 
-	// Store noaaConsumer in rawConsumer struct
-	// to close it from other function
-	c.noaaConsumer = nc
+	// Start to watch context is canceled
+	go func() {
+		<-ctx.Done()
+		err := nc.Close()
+
+		// TODO(tcnksm)
+		_ = err
+	}()
 
 	return eventChan, errChan
 }
 
+// Consume consumes firehose events from doppler.
+// Retry function is handled in noaa library (It will retry 5 times).
+func (c *rawDefaultConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancelFunc = cancel
+	return c.ConsumeContext(ctx)
+}
+
 func (c *rawDefaultConsumer) Close() error {
 	c.logger.Printf("[INFO] Stop consuming firehose events")
-	if c.noaaConsumer == nil {
-		return fmt.Errorf("no connection with firehose")
+	if c.cancelFunc == nil {
+		return fmt.Errorf("cancel function is not given")
 	}
 
-	return c.noaaConsumer.Close()
+	c.cancelFunc()
+	return nil
 }
 
 // validate validates struct has requirement fields or not
@@ -186,5 +215,4 @@ func newRawDefaultConsumer(config *Config) (*rawDefaultConsumer, error) {
 	}
 
 	return c, nil
-
 }
