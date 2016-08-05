@@ -26,7 +26,7 @@ func TestDefaultConsumer(t *testing.T) {
 		SubscriptionID: "A",
 	}
 
-	consumer, err := NewDefaultConsumer(config)
+	consumer, err := NewConsumer(config)
 	if err != nil {
 		t.Fatalf("Expect not to err: %s", err)
 	}
@@ -84,7 +84,7 @@ func TestDefaultConsumer_withoutStart(t *testing.T) {
 	}
 
 	// Create consumer but not start consumer
-	consumer, err := NewDefaultConsumer(config)
+	consumer, err := NewConsumer(config)
 	if err != nil {
 		t.Fatalf("Expect not to err: %s", err)
 	}
@@ -186,7 +186,7 @@ func TestNewDefaultConsumer(t *testing.T) {
 	}
 
 	for i, tc := range cases {
-		_, err := NewDefaultConsumer(tc.in)
+		_, err := NewConsumer(tc.in)
 		if tc.success {
 			if err == nil {
 				// ok
