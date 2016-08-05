@@ -19,10 +19,7 @@ const (
 // is used
 type tokenFetcher interface {
 	// Fetch fetches the token from Uaa and return it. If any, returns error.
-	Fetch() (string, error)
-
-	// FetchContext is Fetch using the given context.
-	FetchContext(context.Context) (string, error)
+	Fetch(context.Context) (string, error)
 }
 
 type defaultTokenFetcher struct {
@@ -36,12 +33,7 @@ type defaultTokenFetcher struct {
 
 // Fetch gets access token from UAA server. This auth token
 // is s used for accessing traffic-controller. It retuns error if any.
-func (tf *defaultTokenFetcher) Fetch() (string, error) {
-	return tf.FetchContext(context.Background())
-}
-
-// FetchContext is gets access token from UAA server using the provided context.
-func (tf *defaultTokenFetcher) FetchContext(ctx context.Context) (string, error) {
+func (tf *defaultTokenFetcher) Fetch(ctx context.Context) (string, error) {
 	if ctx == nil {
 		panic("nil context")
 	}

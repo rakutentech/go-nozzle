@@ -129,7 +129,7 @@ func NewConsumerContext(ctx context.Context, config *Config) (Consumer, error) {
 		}
 
 		// Execute tokenFetcher and get token
-		token, err := fetcher.FetchContext(ctx)
+		token, err := fetcher.Fetch(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch token: %s", err)
 		}

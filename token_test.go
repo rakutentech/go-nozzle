@@ -17,11 +17,11 @@ type testTokenFetcher struct {
 	Token string
 }
 
-func (f *testTokenFetcher) Fetch() (string, error) {
-	return f.FetchContext(context.TODO())
-}
+func (f *testTokenFetcher) Fetch(ctx context.Context) (string, error) {
+	if ctx == nil {
+		panic("nil context")
+	}
 
-func (f *testTokenFetcher) FetchContext(ctx context.Context) (string, error) {
 	if f.Token == "" {
 		return "", fmt.Errorf("no token found")
 	}
@@ -74,7 +74,7 @@ func TestDefaultTokenFetcher_fetch(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	token, err := fetcher.Fetch()
+	token, err := fetcher.Fetch(context.Background())
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -106,11 +106,10 @@ func TestDefaultTokenFetcher_failed_to_auth(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	_, err = fetcher.Fetch()
+	_, err = fetcher.Fetch(context.Background())
 	if err == nil {
 		t.Fatalf("expect to be failed")
 	}
-	// t.Logf("err: %s", err)
 }
 
 func TestDefaultTokenFetcher_timeout(t *testing.T) {
@@ -118,9 +117,8 @@ func TestDefaultTokenFetcher_timeout(t *testing.T) {
 
 	// Create server it just waits for timout of client
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 	}))
-	defer ts.Close()
 
 	config := &Config{
 		UaaAddr:  ts.URL,
@@ -137,8 +135,45 @@ func TestDefaultTokenFetcher_timeout(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
 	// Execute fetcher
-	_, err = fetcher.Fetch()
+	_, err = fetcher.Fetch(ctx)
+
+	expect := "deadline"
+	if !strings.Contains(err.Error(), expect) {
+		t.Fatalf("expects error message %q to contain %q", err.Error(), expect)
+	}
+}
+
+func TestDefaultTokenFetcher_context(t *testing.T) {
+	t.Parallel()
+
+	// Create server it just waits for timout of client
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(3 * time.Second)
+	}))
+
+	config := &Config{
+		UaaAddr:  ts.URL,
+		Username: "admin",
+		Password: "nipr8qhbp89pq",
+		Logger:   defaultLogger,
+
+		UaaTimeout: 10 * time.Second,
+	}
+
+	fetcher, err := newDefaultTokenFetcher(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Execute fetcher
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
+	defer cancel()
+
+	_, err = fetcher.Fetch(ctx)
 
 	expect := "deadline"
 	if !strings.Contains(err.Error(), expect) {
