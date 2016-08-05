@@ -79,7 +79,7 @@ type Config struct {
 	Logger *log.Logger
 
 	// The following fileds are now only for testing.
-	tokenFetcher TokenFetcher
+	tokenFetcher tokenFetcher
 	rawConsumer  RawConsumer
 }
 
