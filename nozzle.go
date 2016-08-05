@@ -80,7 +80,7 @@ type Config struct {
 
 	// The following fileds are now only for testing.
 	tokenFetcher tokenFetcher
-	rawConsumer  RawConsumer
+	rawConsumer  rawConsumer
 }
 
 // NewConsumer constructs a new consumer client for nozzle.
@@ -133,7 +133,7 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 	rc := config.rawConsumer
 	if rc == nil {
 		var err error
-		rc, err = newRawConsumer(config)
+		rc, err = newRawDefaultConsumer(config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct default consumer: %s", err)
 		}

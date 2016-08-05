@@ -33,7 +33,7 @@ type Consumer interface {
 }
 
 type consumer struct {
-	rawConsumer  RawConsumer
+	rawConsumer  rawConsumer
 	slowDetector slowDetector
 	logger       *log.Logger
 
@@ -90,11 +90,11 @@ func (c *consumer) Close() error {
 	return c.slowDetector.Stop()
 }
 
-// RawConsumer defines the interface for consuming events from doppler firehose.
+// rawConsumer defines the interface for consuming events from doppler firehose.
 // The events pulled by RawConsumer pass to slowDetector and check slowDetector.
 //
 // By default, it uses https://github.com/cloudfoundry/noaa
-type RawConsumer interface {
+type rawConsumer interface {
 	// Consume starts cosuming firehose events. It must return 2 channel.
 	// The one is for sending the events from firehose
 	// and the other is for error occured while consuming.
@@ -105,7 +105,7 @@ type RawConsumer interface {
 	Close() error
 }
 
-type rawConsumer struct {
+type rawDefaultConsumer struct {
 	noaaConsumer *noaaConsumer.Consumer
 
 	dopplerAddr    string
@@ -119,7 +119,7 @@ type rawConsumer struct {
 
 // Consume consumes firehose events from doppler.
 // Retry function is handled in noaa library (It will retry 5 times).
-func (c *rawConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
+func (c *rawDefaultConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
 	c.logger.Printf(
 		"[INFO] Start consuming firehose events from Doppler (%s) with subscription ID %q",
 		c.dopplerAddr, c.subscriptionID)
@@ -144,7 +144,7 @@ func (c *rawConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
 	return eventChan, errChan
 }
 
-func (c *rawConsumer) Close() error {
+func (c *rawDefaultConsumer) Close() error {
 	c.logger.Printf("[INFO] Stop consuming firehose events")
 	if c.noaaConsumer == nil {
 		return fmt.Errorf("no connection with firehose")
@@ -154,7 +154,7 @@ func (c *rawConsumer) Close() error {
 }
 
 // validate validates struct has requirement fields or not
-func (c *rawConsumer) validate() error {
+func (c *rawDefaultConsumer) validate() error {
 	if c.dopplerAddr == "" {
 		return fmt.Errorf("DopplerAddr must not be empty")
 	}
@@ -171,8 +171,8 @@ func (c *rawConsumer) validate() error {
 }
 
 // newRawConsumer constructs new rawConsumer.
-func newRawConsumer(config *Config) (*rawConsumer, error) {
-	c := &rawConsumer{
+func newRawDefaultConsumer(config *Config) (*rawDefaultConsumer, error) {
+	c := &rawDefaultConsumer{
 		dopplerAddr:    config.DopplerAddr,
 		token:          config.Token,
 		subscriptionID: config.SubscriptionID,
