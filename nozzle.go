@@ -79,8 +79,8 @@ type Config struct {
 	Logger *log.Logger
 
 	// The following fileds are now only for testing.
-	tokenFetcher TokenFetcher
-	rawConsumer  RawConsumer
+	tokenFetcher tokenFetcher
+	rawConsumer  rawConsumer
 }
 
 // NewConsumer constructs a new consumer client for nozzle.
@@ -93,7 +93,7 @@ type Config struct {
 // It returns error if the token is empty or can not fetch token from UAA
 // If token is not empty or successfully getting from UAA, then it returns nozzle.Consumer.
 // (In initial version, it starts consuming here but now Start() should be called).
-func NewDefaultConsumer(config *Config) (Consumer, error) {
+func NewConsumer(config *Config) (Consumer, error) {
 	if config.Logger == nil {
 		config.Logger = defaultLogger
 	}
@@ -133,7 +133,7 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 	rc := config.rawConsumer
 	if rc == nil {
 		var err error
-		rc, err = newRawConsumer(config)
+		rc, err = newRawDefaultConsumer(config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct default consumer: %s", err)
 		}
@@ -143,6 +143,11 @@ func NewDefaultConsumer(config *Config) (Consumer, error) {
 		rawConsumer: rc,
 		logger:      config.Logger,
 	}, nil
+}
+
+// Deprecated: NewDefaultConsumer is deprecated, use NewConsumer instead
+func NewDefaultConsumer(config *Config) (Consumer, error) {
+	return NewConsumer(config)
 }
 
 // maskString is used to mask string which should not be displayed

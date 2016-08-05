@@ -27,7 +27,7 @@ func TestConsumer_implement(t *testing.T) {
 
 func TestRawConsumer_implement(t *testing.T) {
 	// Test rawConsumer implements consumer
-	var _ RawConsumer = &rawConsumer{}
+	var _ rawConsumer = &rawDefaultConsumer{}
 }
 
 func TestRawConsumer_consume(t *testing.T) {
@@ -43,7 +43,7 @@ func TestRawConsumer_consume(t *testing.T) {
 	ts := NewDopplerServer(t, inputCh, authToken)
 	defer ts.Close()
 
-	consumer := &rawConsumer{
+	consumer := &rawDefaultConsumer{
 		dopplerAddr:    strings.Replace(ts.URL, "http:", "ws:", 1),
 		token:          authToken,
 		subscriptionID: "test-go-nozzle-A",
@@ -74,7 +74,7 @@ func TestRawConsumer_consume(t *testing.T) {
 }
 
 func TestRawConsumerClose_no_connection(t *testing.T) {
-	consumer := &rawConsumer{
+	consumer := &rawDefaultConsumer{
 		logger: log.New(ioutil.Discard, "", log.LstdFlags),
 	}
 	err := consumer.Close()
@@ -85,11 +85,11 @@ func TestRawConsumerClose_no_connection(t *testing.T) {
 
 func TestRawConsumer_validate(t *testing.T) {
 	tests := []struct {
-		in      *rawConsumer
+		in      *rawDefaultConsumer
 		success bool
 	}{
 		{
-			in: &rawConsumer{
+			in: &rawDefaultConsumer{
 				dopplerAddr:    "wss://doppler.cloudfoundry.com",
 				token:          "POrr7uofS1TOqaGCpH0skk=",
 				subscriptionID: "go-nozzle-A",
@@ -98,7 +98,7 @@ func TestRawConsumer_validate(t *testing.T) {
 		},
 
 		{
-			in: &rawConsumer{
+			in: &rawDefaultConsumer{
 				dopplerAddr:    "wss://doppler.cloudfoundry.com",
 				subscriptionID: "go-nozzle-A",
 			},
@@ -106,7 +106,7 @@ func TestRawConsumer_validate(t *testing.T) {
 		},
 
 		{
-			in:      &rawConsumer{},
+			in:      &rawDefaultConsumer{},
 			success: false,
 		},
 	}

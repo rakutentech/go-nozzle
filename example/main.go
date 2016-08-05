@@ -54,7 +54,7 @@ func run(args []string) int {
 		Logger:         log.New(os.Stdout, "", log.LstdFlags),
 	}
 
-	consumer, err := nozzle.NewDefaultConsumer(config)
+	consumer, err := nozzle.NewConsumer(config)
 	if err != nil {
 		log.Printf("[ERROR] Failed to construct nozzle consumer: %s", err)
 		return 1

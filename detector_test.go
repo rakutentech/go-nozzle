@@ -19,7 +19,7 @@ var (
 )
 
 func TestDefaultSlowDetector_implement(t *testing.T) {
-	var _ SlowDetector = &defaultSlowDetector{}
+	var _ slowDetector = &defaultSlowDetector{}
 }
 
 func TestDefaultSlowDetectorClose(t *testing.T) {

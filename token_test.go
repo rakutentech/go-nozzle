@@ -25,7 +25,7 @@ func (f *testTokenFetcher) Fetch() (string, error) {
 }
 
 func TestDefaultTokenFetcher_implement(t *testing.T) {
-	var _ TokenFetcher = &defaultTokenFetcher{}
+	var _ tokenFetcher = &defaultTokenFetcher{}
 }
 
 func TestDefaultTokenFetcher_fetch(t *testing.T) {
