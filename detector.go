@@ -23,10 +23,7 @@ type slowDetector interface {
 	// and pass it to to downstream without modification.
 	//
 	// It returns SlowDetectCh and notify `slowConsumerAlert` there.
-	Detect(<-chan *events.Envelope, <-chan error) (<-chan *events.Envelope, <-chan error, slowDetectCh)
-
-	// DetectContext detects `slowConsumerAlert` using the given context
-	DetectContext(context.Context, noaaEventsCh, <-chan error) (noaaEventsCh, <-chan error, slowDetectCh)
+	Detect(context.Context, noaaEventsCh, <-chan error) (noaaEventsCh, <-chan error, slowDetectCh)
 
 	// Stop stops slow consumer detection. If any returns error.
 	Stop() error
@@ -38,7 +35,8 @@ type defaultSlowDetector struct {
 	logger     *log.Logger
 }
 
-func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEventsCh, errCh <-chan error) (noaaEventsCh, <-chan error, slowDetectCh) {
+// Detect start to detect `slowConsumerAlert` event.
+func (sd *defaultSlowDetector) Detect(ctx context.Context, eventCh noaaEventsCh, errCh <-chan error) (noaaEventsCh, <-chan error, slowDetectCh) {
 
 	if ctx == nil {
 		panic("nil context")
@@ -56,15 +54,17 @@ func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEv
 	// Detect from from trafficcontroller event messages
 	go func() {
 		defer close(eventCh_)
-		for event := range eventCh {
-			// Check nozzle can catch up firehose outputs speed.
-			if isTruncated(event) {
-				detectCh <- fmt.Errorf(
-					"doppler dropped messages from its queue because nozzle is slow")
-			}
-
+		for {
 			select {
-			case eventCh_ <- event:
+			case event := <-eventCh:
+				// Check nozzle can catch up firehose outputs speed.
+				if isTruncated(event) {
+					detectCh <- fmt.Errorf(
+						"doppler dropped messages from its queue because nozzle is slow")
+				}
+
+				eventCh_ <- event
+
 			case <-ctx.Done():
 				// Send errCh_ that context is closed
 				sd.logger.Println("[INFO] Canceled parent context: closing event channel")
@@ -73,32 +73,34 @@ func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEv
 				// close downstream eventCh
 				return
 			}
-
 		}
 	}()
 
 	// Detect from websocket errors
 	go func() {
 		defer close(errCh_)
-		for err := range errCh {
-			switch t := err.(type) {
-			case *websocket.CloseError:
-				if t.Code == websocket.ClosePolicyViolation {
-					// ClosePolicyViolation (1008)
-					// indicates that an endpoint is terminating the connection
-					// because it has received a message that violates its policy.
-					//
-					// This is a generic status code that can be returned when there is no
-					// other more suitable status code (e.g., 1003 or 1009) or if there
-					// is a need to hide specific details about the policy.
-					//
-					// http://tools.ietf.org/html/rfc6455#section-11.7
-					detectCh <- fmt.Errorf(
-						"websocket terminates the connection because connection is too slow (ClosePolicyViolation)")
-				}
-			}
+		for {
 			select {
-			case errCh_ <- err:
+			case err := <-errCh:
+
+				switch t := err.(type) {
+				case *websocket.CloseError:
+					if t.Code == websocket.ClosePolicyViolation {
+						// ClosePolicyViolation (1008)
+						// indicates that an endpoint is terminating the connection
+						// because it has received a message that violates its policy.
+						//
+						// This is a generic status code that can be returned when there is no
+						// other more suitable status code (e.g., 1003 or 1009) or if there
+						// is a need to hide specific details about the policy.
+						//
+						// http://tools.ietf.org/html/rfc6455#section-11.7
+						msg := "websocket terminates the connection because connection is too slow"
+						detectCh <- fmt.Errorf(msg)
+					}
+				}
+				errCh_ <- err
+
 			case <-ctx.Done():
 				// Send errCh_ that context is closed
 				sd.logger.Println("[INFO] Canceled parent context: closing error channel")
@@ -107,18 +109,16 @@ func (sd *defaultSlowDetector) DetectContext(ctx context.Context, eventCh noaaEv
 				// close downstream errCh and eventCh
 				return
 			}
-
 		}
 	}()
 
-	return eventCh_, errCh_, detectCh
-}
+	go func() {
+		// Wait cancel signal and close detectCh
+		<-ctx.Done()
+		close(detectCh)
+	}()
 
-// Detect start to detect `slowConsumerAlert` event.
-func (sd *defaultSlowDetector) Detect(eventCh <-chan *events.Envelope, errCh <-chan error) (<-chan *events.Envelope, <-chan error, slowDetectCh) {
-	ctx, cancel := context.WithCancel(context.Background())
-	sd.cancelFunc = cancel
-	return sd.DetectContext(ctx, eventCh, errCh)
+	return eventCh_, errCh_, detectCh
 }
 
 func (sd *defaultSlowDetector) Stop() error {

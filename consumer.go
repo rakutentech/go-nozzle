@@ -81,7 +81,7 @@ func (c *consumer) StartContext(ctx context.Context) error {
 
 	// Start reading events from firehose and detect `slowConsumerAlert`.
 	// The detection is notified by detectCh.
-	c.eventCh, c.errCh, c.detectCh = sd.DetectContext(ctx, eventsCh, errCh)
+	c.eventCh, c.errCh, c.detectCh = sd.Detect(ctx, eventsCh, errCh)
 
 	// In current implementation no errors are happened.
 	//

@@ -1,9 +1,11 @@
 package nozzle
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,7 +63,7 @@ func TestDefaultDetect_eventCh(t *testing.T) {
 
 	eventCh := make(chan *events.Envelope)
 	errCh := make(chan error)
-	_, _, detectCh := testDetector.Detect(eventCh, errCh)
+	_, _, detectCh := testDetector.Detect(context.Background(), eventCh, errCh)
 
 	for _, tc := range cases {
 		// Send the events
@@ -80,7 +82,6 @@ func TestDefaultDetect_eventCh(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 func TestDefaultDetect_errCh(t *testing.T) {
@@ -109,7 +110,7 @@ func TestDefaultDetect_errCh(t *testing.T) {
 
 	eventCh := make(chan *events.Envelope)
 	errCh := make(chan error)
-	_, _, detectCh := testDetector.Detect(eventCh, errCh)
+	_, _, detectCh := testDetector.Detect(context.Background(), eventCh, errCh)
 
 	for _, tc := range cases {
 		// Send the events
@@ -128,7 +129,63 @@ func TestDefaultDetect_errCh(t *testing.T) {
 			}
 		}
 	}
+}
 
+func TestDefaultDetect_context(t *testing.T) {
+	t.Parallel()
+
+	testDetector := &defaultSlowDetector{
+		logger: log.New(ioutil.Discard, "", log.LstdFlags),
+	}
+
+	eventCh := make(chan *events.Envelope)
+	errCh := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	eventCh_, errCh_, detectCh := testDetector.Detect(ctx, eventCh, errCh)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		_, chOpen := <-eventCh_
+		if !chOpen {
+			wg.Done()
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		_, chOpen := <-detectCh
+		if !chOpen {
+			wg.Done()
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		for {
+			_, chOpen := <-errCh_
+			if !chOpen {
+				wg.Done()
+				return
+			}
+		}
+	}()
+
+	// Wait until all goroutines are closed
+	doneCh := make(chan struct{}, 1)
+	go func() {
+		wg.Wait()
+		doneCh <- struct{}{}
+	}()
+
+	cancel()
+	select {
+	case <-doneCh:
+		// success
+	case <-time.After(3 * time.Second):
+		t.Fatalf("timeout waiting for 3 channels")
+	}
 }
 
 func TestIsTruncated(t *testing.T) {
