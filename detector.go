@@ -24,9 +24,6 @@ type slowDetector interface {
 	//
 	// It returns SlowDetectCh and notify `slowConsumerAlert` there.
 	Detect(context.Context, noaaEventsCh, <-chan error) (noaaEventsCh, <-chan error, slowDetectCh)
-
-	// Stop stops slow consumer detection. If any returns error.
-	Stop() error
 }
 
 // defaultSlowDetector implements SlowDetector interface
@@ -68,7 +65,6 @@ func (sd *defaultSlowDetector) Detect(ctx context.Context, eventCh noaaEventsCh,
 			case <-ctx.Done():
 				// Send errCh_ that context is closed
 				sd.logger.Println("[INFO] Canceled parent context: closing event channel")
-				errCh_ <- ctx.Err()
 
 				// close downstream eventCh
 				return
@@ -104,7 +100,6 @@ func (sd *defaultSlowDetector) Detect(ctx context.Context, eventCh noaaEventsCh,
 			case <-ctx.Done():
 				// Send errCh_ that context is closed
 				sd.logger.Println("[INFO] Canceled parent context: closing error channel")
-				errCh_ <- ctx.Err()
 
 				// close downstream errCh and eventCh
 				return
@@ -119,17 +114,6 @@ func (sd *defaultSlowDetector) Detect(ctx context.Context, eventCh noaaEventsCh,
 	}()
 
 	return eventCh_, errCh_, detectCh
-}
-
-func (sd *defaultSlowDetector) Stop() error {
-	sd.logger.Println("[INFO] Stop detecting slowConsumerAlert event")
-	if sd.cancelFunc == nil {
-		return fmt.Errorf("cancel function is not given")
-	}
-
-	sd.cancelFunc()
-
-	return nil
 }
 
 // isTruncated detects message from the Doppler that the nozzle

@@ -25,12 +25,6 @@ func TestDefaultSlowDetector_implement(t *testing.T) {
 }
 
 func TestDefaultSlowDetectorClose(t *testing.T) {
-	detector := &defaultSlowDetector{
-		logger: log.New(ioutil.Discard, "", log.LstdFlags),
-	}
-	if err := detector.Stop(); err == nil {
-		t.Fatalf("expects to be failed")
-	}
 }
 
 func TestDefaultDetect_eventCh(t *testing.T) {
@@ -163,12 +157,10 @@ func TestDefaultDetect_context(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		for {
-			_, chOpen := <-errCh_
-			if !chOpen {
-				wg.Done()
-				return
-			}
+		_, chOpen := <-errCh_
+		if !chOpen {
+			wg.Done()
+			return
 		}
 	}()
 
