@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,11 +14,7 @@ import (
 
 type testRawConsumer struct{}
 
-func (c *testRawConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
-	return c.ConsumeContext(context.Background())
-}
-
-func (c *testRawConsumer) ConsumeContext(ctx context.Context) (noaaEventsCh, <-chan error) {
+func (c *testRawConsumer) Consume(ctx context.Context) (noaaEventsCh, <-chan error) {
 	eventCh, errCh := make(chan *events.Envelope), make(chan error)
 	return eventCh, errCh
 }
@@ -55,7 +52,12 @@ func TestRawConsumer_consume(t *testing.T) {
 		insecure:       true,
 		logger:         log.New(ioutil.Discard, "", log.LstdFlags),
 	}
-	eventCh, _ := consumer.Consume()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start consuming
+	eventCh, _ := consumer.Consume(ctx)
 
 	// Create test message send from web socket.
 	// It will be encoded to protocol buffer.
@@ -75,6 +77,58 @@ func TestRawConsumer_consume(t *testing.T) {
 	got := string(event.GetLogMessage().Message)
 	if got != message {
 		t.Fatalf("expect %q to be eq %q", got, message)
+	}
+}
+
+func TestRawConsumer_consume_cancel(t *testing.T) {
+	t.Parallel()
+
+	// inputCh is used to send message from test web socket server
+	inputCh := make(chan []byte)
+
+	// authToken is valid auth token used for authorizing web socket connection
+	authToken := "n98ubNOIUog9gOPUbvqiur"
+
+	// Setup web socket server
+	ts := NewDopplerServer(t, inputCh, authToken)
+	defer ts.Close()
+
+	consumer := &rawDefaultConsumer{
+		dopplerAddr:    strings.Replace(ts.URL, "http:", "ws:", 1),
+		token:          authToken,
+		subscriptionID: "test-go-nozzle-B",
+		insecure:       true,
+		logger:         log.New(ioutil.Discard, "", log.LstdFlags),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start consuming
+	eventCh, _ := consumer.Consume(ctx)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		_, chOpen := <-eventCh
+		if !chOpen {
+			wg.Done()
+		}
+	}()
+
+	// Wait until all goroutines are closed
+	doneCh := make(chan struct{}, 1)
+	go func() {
+		wg.Wait()
+		doneCh <- struct{}{}
+	}()
+
+	cancel()
+	select {
+	case <-doneCh:
+		// success
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timeout waiting for 2 channels")
 	}
 }
 

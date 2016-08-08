@@ -72,7 +72,7 @@ func (c *consumer) StartContext(ctx context.Context) error {
 	}
 
 	// Start consuming events from firehose.
-	eventsCh, errCh := c.rawConsumer.ConsumeContext(ctx)
+	eventsCh, errCh := c.rawConsumer.Consume(ctx)
 
 	// Construct default slowDetector
 	sd := &defaultSlowDetector{
@@ -109,10 +109,7 @@ type rawConsumer interface {
 	// The one is for sending the events from firehose
 	// and the other is for error occured while consuming.
 	// These channels are used donwstream process (SlowConsumer).
-	Consume() (<-chan *events.Envelope, <-chan error)
-
-	// ConsumeContext start consuming firehose events using the given context
-	ConsumeContext(context.Context) (noaaEventsCh, <-chan error)
+	Consume(context.Context) (noaaEventsCh, <-chan error)
 
 	// Close closes connection with firehose. If any, returns error.
 	Close() error
@@ -130,7 +127,9 @@ type rawDefaultConsumer struct {
 	cancelFunc context.CancelFunc
 }
 
-func (c *rawDefaultConsumer) ConsumeContext(ctx context.Context) (noaaEventsCh, <-chan error) {
+// Consume consumes firehose events from doppler.
+// Retry function is handled in noaa library (It will retry 5 times).
+func (c *rawDefaultConsumer) Consume(ctx context.Context) (noaaEventsCh, <-chan error) {
 	if ctx == nil {
 		panic("nil context")
 	}
@@ -162,14 +161,6 @@ func (c *rawDefaultConsumer) ConsumeContext(ctx context.Context) (noaaEventsCh, 
 	}()
 
 	return eventChan, errChan
-}
-
-// Consume consumes firehose events from doppler.
-// Retry function is handled in noaa library (It will retry 5 times).
-func (c *rawDefaultConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	c.cancelFunc = cancel
-	return c.ConsumeContext(ctx)
 }
 
 func (c *rawDefaultConsumer) Close() error {
