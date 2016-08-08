@@ -28,8 +28,7 @@ type slowDetector interface {
 
 // defaultSlowDetector implements SlowDetector interface
 type defaultSlowDetector struct {
-	cancelFunc context.CancelFunc
-	logger     *log.Logger
+	logger *log.Logger
 }
 
 // Detect start to detect `slowConsumerAlert` event.

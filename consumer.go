@@ -110,9 +110,6 @@ type rawConsumer interface {
 	// and the other is for error occured while consuming.
 	// These channels are used donwstream process (SlowConsumer).
 	Consume(context.Context) (noaaEventsCh, <-chan error)
-
-	// Close closes connection with firehose. If any, returns error.
-	Close() error
 }
 
 type rawDefaultConsumer struct {
@@ -123,8 +120,6 @@ type rawDefaultConsumer struct {
 	debugPrinter   noaaConsumer.DebugPrinter
 
 	logger *log.Logger
-
-	cancelFunc context.CancelFunc
 }
 
 // Consume consumes firehose events from doppler.
@@ -161,16 +156,6 @@ func (c *rawDefaultConsumer) Consume(ctx context.Context) (noaaEventsCh, <-chan 
 	}()
 
 	return eventChan, errChan
-}
-
-func (c *rawDefaultConsumer) Close() error {
-	c.logger.Printf("[INFO] Stop consuming firehose events")
-	if c.cancelFunc == nil {
-		return fmt.Errorf("cancel function is not given")
-	}
-
-	c.cancelFunc()
-	return nil
 }
 
 // validate validates struct has requirement fields or not

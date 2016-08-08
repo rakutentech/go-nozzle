@@ -132,16 +132,6 @@ func TestRawConsumer_consume_cancel(t *testing.T) {
 	}
 }
 
-func TestRawConsumerClose_no_connection(t *testing.T) {
-	consumer := &rawDefaultConsumer{
-		logger: log.New(ioutil.Discard, "", log.LstdFlags),
-	}
-	err := consumer.Close()
-	if err == nil {
-		t.Fatalf("expects to be failed")
-	}
-}
-
 func TestRawConsumer_validate(t *testing.T) {
 	tests := []struct {
 		in      *rawDefaultConsumer
