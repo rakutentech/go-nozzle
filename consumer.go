@@ -10,8 +10,7 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
-// Consumer defines the interface of consumer it receives
-// upstream firehose events and slowConsumerAlerts events and errors.
+// Deprecated: Consumer is deprecated use ConsumerContext instead.
 type Consumer interface {
 	// Events returns the read channel for the events that consumed by
 	// rawConsumer(by default Noaa).
@@ -31,6 +30,25 @@ type Consumer interface {
 	// Close stop consuming upstream events by RawConsumer and stop SlowDetector.
 	// If any, returns error.
 	Close() error
+}
+
+// ConsumerContext defines the interface of consumer it receives
+// upstream firehose events and slowConsumerAlerts events and errors.
+type ConsumerContext interface {
+	// Events returns the read channel for the events that consumed by
+	// rawConsumer(by default Noaa).
+	Events() <-chan *events.Envelope
+
+	// Detects returns the read channel that is notified slowConsumerAlerts
+	// handled by SlowDetector.
+	Detects() <-chan error
+
+	// Error returns the read channel of erros that occured during consuming.
+	Errors() <-chan error
+
+	// StartWithContext starts consuming upstream events by RawConsumer and SlowDetector.
+	// If any, returns error by using the given context
+	StartWithContext(context.Context) error
 }
 
 type consumer struct {
@@ -60,12 +78,13 @@ func (c *consumer) Errors() <-chan error {
 
 // Start starts consuming & slowDetector
 func (c *consumer) Start() error {
+	c.logger.Printf("[WARN] Consumer is deprecated. Use ConsumerContext instead")
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancelFunc = cancel
-	return c.StartContext(ctx)
+	return c.StartWithContext(ctx)
 }
 
-func (c *consumer) StartContext(ctx context.Context) error {
+func (c *consumer) StartWithContext(ctx context.Context) error {
 
 	if ctx == nil {
 		panic("nil context")

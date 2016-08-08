@@ -94,12 +94,30 @@ type Config struct {
 // It returns error if the token is empty or can not fetch token from UAA
 // If token is not empty or successfully getting from UAA, then it returns nozzle.Consumer.
 // (In initial version, it starts consuming here but now Start() should be called).
+//
+// It retuns old Consumer for backward compatibility.
+// If you want to use context-powerd consumer (ConsumerContext) transform by `UseContext` method
 func NewConsumer(config *Config) (Consumer, error) {
-	return NewConsumerContext(context.Background(), config)
+	consumerContext, err := NewConsumerContext(context.Background(), config)
+	if err != nil {
+		return nil, err
+	}
+
+	consumer, ok := consumerContext.(Consumer)
+	if !ok {
+		// It should not reach here.
+		panic("consumerContext does not implement Consumer")
+	}
+
+	return consumer, nil
 }
 
 // NewConsumerContext construct a new consumer with the given context.
-func NewConsumerContext(ctx context.Context, config *Config) (Consumer, error) {
+//
+// You should pass context when you want to grab auth token from UAA.
+//
+// It retuns context-powered consumer (ConsumerContext).
+func NewConsumerContext(ctx context.Context, config *Config) (ConsumerContext, error) {
 	if ctx == nil {
 		panic("nil context")
 	}
@@ -153,6 +171,16 @@ func NewConsumerContext(ctx context.Context, config *Config) (Consumer, error) {
 		rawConsumer: rc,
 		logger:      config.Logger,
 	}, nil
+}
+
+// UseContext transform Consumer
+func UseContext(consumer Consumer) (ConsumerContext, error) {
+	consumerContext, ok := (consumer).(ConsumerContext)
+	if !ok {
+		return nil, fmt.Errorf("the given type doen't implement ConsumerContext")
+	}
+
+	return consumerContext, nil
 }
 
 // Deprecated: NewDefaultConsumer is deprecated, use NewConsumer instead
