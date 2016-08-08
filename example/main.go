@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -54,17 +55,31 @@ func run(args []string) int {
 		Logger:         log.New(os.Stdout, "", log.LstdFlags),
 	}
 
-	consumer, err := nozzle.NewConsumer(config)
+	ctxUaa, cancelUaa := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelUaa()
+
+	consumer, err := nozzle.NewConsumerContext(ctxUaa, config)
 	if err != nil {
 		log.Printf("[ERROR] Failed to construct nozzle consumer: %s", err)
 		return 1
 	}
 
 	// Start consumer
-	consumer.Start()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle signaling
+	signalCh := make(chan os.Signal)
+	signal.Notify(signalCh, os.Interrupt, os.Kill)
+	go func() {
+		<-signalCh
+		log.Printf("[INFO] Interrupt Received")
+		cancel()
+	}()
 
 	log.Printf("[INFO] Start example producer")
-	doneCh := make(chan struct{})
+	consumer.StartWithContext(ctx)
+	doneCh := make(chan struct{}, 1)
 	go func() {
 		defer close(doneCh)
 		for {
@@ -79,25 +94,13 @@ func run(args []string) int {
 			case err := <-consumer.Errors():
 				log.Printf("[ERROR] Failed to consume nozzle events", err)
 				return
+			case <-ctx.Done():
+				log.Printf("[ERROR] context is cancelled: %s", ctx.Err())
+				return
 			}
 		}
 	}()
 
-	// Handle signaling
-	signalCh := make(chan os.Signal)
-	signal.Notify(signalCh, os.Interrupt, os.Kill)
-	go func() {
-		<-signalCh
-		log.Printf("[INFO] Interrupt Received")
-		close(doneCh)
-	}()
-
 	<-doneCh
-	log.Printf("[INFO] nozzle: close nozzle consumer")
-	if err := consumer.Close(); err != nil {
-		log.Printf("[ERROR] nozzle: failed to close nozzle consumer: %s", err)
-		return 1
-	}
-
 	return 0
 }
