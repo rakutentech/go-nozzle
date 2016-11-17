@@ -18,7 +18,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/cloudfoundry/noaa"
+	noaa_consumer "github.com/cloudfoundry/noaa/consumer"
 )
 
 // By default, all logs goes to ioutil.Discard.
@@ -72,7 +72,7 @@ type Config struct {
 	// DebugPrinter is noaa.DebugPrinter. It's used for debugging
 	// Noaa. Noaa is a client library to consume metric and log
 	// messages from Doppler.
-	DebugPrinter noaa.DebugPrinter
+	DebugPrinter noaa_consumer.DebugPrinter
 
 	// Logger is logger for go-nozzle. By default, output will be
 	// discarded and not be displayed.
