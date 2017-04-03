@@ -78,6 +78,11 @@ type Config struct {
 	// discarded and not be displayed.
 	Logger *log.Logger
 
+	// IdleTimeout is how much time to wait for a message to arrive. If no
+	// message arrives with this period, the ws connection is considered dead.
+	// If 0 (default) the timeout is disabled.
+	IdleTimeout time.Duration
+
 	// The following fileds are now only for testing.
 	tokenFetcher tokenFetcher
 	rawConsumer  rawConsumer

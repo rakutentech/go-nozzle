@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"time"
 
 	noaaConsumer "github.com/cloudfoundry/noaa/consumer"
 	"github.com/cloudfoundry/sonde-go/events"
@@ -113,6 +114,7 @@ type rawDefaultConsumer struct {
 	subscriptionID string
 	insecure       bool
 	debugPrinter   noaaConsumer.DebugPrinter
+	idleTimeout    time.Duration
 
 	logger *log.Logger
 }
@@ -133,6 +135,8 @@ func (c *rawDefaultConsumer) Consume() (<-chan *events.Envelope, <-chan error) {
 	if c.debugPrinter != nil {
 		nc.SetDebugPrinter(c.debugPrinter)
 	}
+
+	nc.SetIdleTimeout(c.idleTimeout)
 
 	// Start connection
 	eventChan, errChan := nc.Firehose(c.subscriptionID, c.token)
@@ -179,6 +183,7 @@ func newRawDefaultConsumer(config *Config) (*rawDefaultConsumer, error) {
 		insecure:       config.Insecure,
 		debugPrinter:   config.DebugPrinter,
 		logger:         config.Logger,
+		idleTimeout:    config.IdleTimeout,
 	}
 
 	if err := c.validate(); err != nil {
