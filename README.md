@@ -23,10 +23,11 @@ The following is the simple example,
 ```golang
 // Setup consumer configuration
 config := &nozzle.Config{
-	DopplerAddr:    "wss://doppler.cloudfoundry.net",
+    DopplerAddr:    "wss://doppler.cloudfoundry.net",
     UaaAddr:        "https://uaa.cloudfoundry.net",
     Username:       "tcnksm",
     Password:       "xyz",
+    Insecure:       false, //please don't
     SubscriptionID: "go-nozzle-example-A",
 }
    

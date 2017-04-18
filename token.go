@@ -25,6 +25,7 @@ type defaultTokenFetcher struct {
 	uaaAddr  string
 	username string
 	password string
+	insecure bool
 	timeout  time.Duration
 	insecure bool
 	logger   *log.Logger
