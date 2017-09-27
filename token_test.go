@@ -24,6 +24,10 @@ func (f *testTokenFetcher) Fetch() (string, error) {
 	return f.Token, nil
 }
 
+func (f *testTokenFetcher) RefreshAuthToken() (string, error) {
+	 return f.Fetch()
+}
+
 func TestDefaultTokenFetcher_implement(t *testing.T) {
 	var _ tokenFetcher = &defaultTokenFetcher{}
 }
